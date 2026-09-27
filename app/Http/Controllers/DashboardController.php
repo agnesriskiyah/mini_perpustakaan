@@ -9,151 +9,70 @@ class DashboardController extends Controller
 {
     /**
      * Dashboard untuk role Peminjam.
-     * Menggunakan data dummy terstruktur yang siap digantikan Eloquent Model nantinya.
+     * Menggunakan data riil dari database (Book & Loan).
      */
     public function peminjam()
     {
         $user = Auth::user();
 
-        // Data ringkasan (Summary Cards)
+        // 1. Data ringkasan (Summary Cards) dari database
+        $sedangDipinjamCount = \App\Models\Loan::where('user_id', $user->id)
+            ->where('status', 'dipinjam')
+            ->count();
+
+        $jatuhTempoCount = \App\Models\Loan::where('user_id', $user->id)
+            ->where('status', 'dipinjam')
+            ->where('tanggal_jatuh_tempo', '<=', \Carbon\Carbon::today()->addDays(2)->format('Y-m-d'))
+            ->count();
+
+        $totalRiwayatCount = \App\Models\Loan::where('user_id', $user->id)->count();
+
+        $bukuTersediaCount = \App\Models\Book::where('stok', '>', 0)->count();
+
         $statistics = [
-            'sedang_dipinjam' => 2,
-            'jatuh_tempo' => 1,
-            'total_riwayat' => 14,
-            'buku_tersedia' => 1250,
+            'sedang_dipinjam' => $sedangDipinjamCount,
+            'jatuh_tempo' => $jatuhTempoCount,
+            'total_riwayat' => $totalRiwayatCount,
+            'buku_tersedia' => $bukuTersediaCount,
         ];
 
-        // Data peminjaman yang sedang aktif
-        $activeLoans = [
-            [
-                'id' => 'PJ-2026-089',
-                'judul' => 'Struktur Data & Algoritma dengan Python',
-                'penulis' => 'Dr. Indrajit & Tim Lab',
-                'kategori' => 'Komputer & IT',
-                'cover_color' => '#1e3a8a',
-                'tgl_pinjam' => '20 Sep 2026',
-                'tgl_jatuh_tempo' => '27 Sep 2026',
-                'sisa_hari' => '1 hari lagi',
-                'status' => 'Mendekati Batas',
-                'badge_class' => 'badge-warning',
-            ],
-            [
-                'id' => 'PJ-2026-074',
-                'judul' => 'Clean Architecture: Software Craftsmanship',
-                'penulis' => 'Robert C. Martin',
-                'kategori' => 'Software Engineering',
-                'cover_color' => '#0f766e',
-                'tgl_pinjam' => '18 Sep 2026',
-                'tgl_jatuh_tempo' => '02 Okt 2026',
-                'sisa_hari' => '6 hari lagi',
-                'status' => 'Sedang Dipinjam',
-                'badge_class' => 'badge-primary',
-            ],
-        ];
+        // 2. Data peminjaman yang sedang aktif milik user login
+        $activeLoans = \App\Models\Loan::with('book')
+            ->where('user_id', $user->id)
+            ->where('status', 'dipinjam')
+            ->orderBy('tanggal_pinjam', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($loan) {
+                return PeminjamanController::formatLoanData($loan);
+            });
 
-        // Data katalog buku terbaru
-        $latestBooks = [
-            [
-                'id' => 101,
-                'judul' => 'Pemrograman Web Modern Laravel 10',
-                'penulis' => 'Rian Pratama, M.Kom',
-                'penerbit' => 'Informatika Press',
-                'tahun' => '2025',
-                'kategori' => 'Teknologi Informasi',
-                'isbn' => '978-602-1234-56-1',
-                'stok' => 4,
-                'total_stok' => 5,
-                'cover_bg' => 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
-            ],
-            [
-                'id' => 102,
-                'judul' => 'Machine Learning & Deep Learning Fundamental',
-                'penulis' => 'Prof. Dr. Ir. Gunawan, M.T.',
-                'penerbit' => 'Sains Komputasi',
-                'tahun' => '2024',
-                'kategori' => 'Kecerdasan Buatan',
-                'isbn' => '978-602-9876-12-0',
-                'stok' => 2,
-                'total_stok' => 4,
-                'cover_bg' => 'linear-gradient(135deg, #065f46 0%, #10b981 100%)',
-            ],
-            [
-                'id' => 103,
-                'judul' => 'Sistem Basis Data Relasional & NoSQL',
-                'penulis' => 'Siti Nur Aini, S.Kom, M.T.',
-                'penerbit' => 'Gava Media',
-                'tahun' => '2023',
-                'kategori' => 'Database',
-                'isbn' => '978-602-5432-88-9',
-                'stok' => 6,
-                'total_stok' => 6,
-                'cover_bg' => 'linear-gradient(135deg, #7c2d12 0%, #ea580c 100%)',
-            ],
-            [
-                'id' => 104,
-                'judul' => 'Metodologi Penelitian Ilmu Komputer',
-                'penulis' => 'Dr. Eng. Wahyudi, S.T., M.Sc.',
-                'penerbit' => 'Andi Publisher',
-                'tahun' => '2024',
-                'kategori' => 'Akademik & Riset',
-                'isbn' => '978-602-7654-32-1',
-                'stok' => 3,
-                'total_stok' => 3,
-                'cover_bg' => 'linear-gradient(135deg, #4c1d95 0%, #8b5cf6 100%)',
-            ],
-        ];
+        // 3. Data katalog buku terbaru dari database
+        $latestBooks = \App\Models\Book::orderBy('created_at', 'desc')->take(4)->get();
 
-        // Rekomendasi buku untuk peminjam
-        $recommendations = [
-            [
-                'id' => 201,
-                'judul' => 'Cyber Security Essentials & Ethical Hacking',
-                'penulis' => 'Bambang Sudarsono, CEH',
-                'kategori' => 'Keamanan Jaringan',
-                'rating' => 4.9,
-                'dipinjam_count' => '42x dipinjam',
-                'status' => 'Tersedia',
-                'cover_accent' => '#0284c7',
-            ],
-            [
-                'id' => 202,
-                'judul' => 'Desain Interaksi UI/UX Aplikasi Web',
-                'penulis' => 'Maya Anggraini, M.Ds.',
-                'kategori' => 'Desain Grafis',
-                'rating' => 4.8,
-                'dipinjam_count' => '38x dipinjam',
-                'status' => 'Tersedia',
-                'cover_accent' => '#d97706',
-            ],
-            [
-                'id' => 203,
-                'judul' => 'Cloud Computing Architecture dengan AWS',
-                'penulis' => 'Kevin Sanjaya, AWS Pro',
-                'kategori' => 'Infrastruktur Cloud',
-                'rating' => 4.7,
-                'dipinjam_count' => '31x dipinjam',
-                'status' => 'Tersedia',
-                'cover_accent' => '#059669',
-            ],
-        ];
+        // Rekomendasi buku untuk peminjam (buku acak / populer dari database)
+        $recommendations = \App\Models\Book::where('stok', '>', 0)
+            ->inRandomOrder()
+            ->take(3)
+            ->get();
 
         return view('peminjam.dashboard', compact('user', 'statistics', 'activeLoans', 'latestBooks', 'recommendations'));
     }
 
     /**
      * Dashboard untuk role Petugas Perpustakaan.
-     * Menggunakan data dummy terstruktur yang siap digantikan Eloquent Model nantinya.
      */
     public function petugas()
     {
         $user = Auth::user();
 
-        // Data statistik administrasi perpustakaan
+        // Data statistik administrasi perpustakaan riil dari database
+        $today = \Carbon\Carbon::today()->format('Y-m-d');
         $statistics = [
-            'total_buku' => 3840,
-            'total_peminjam' => 512,
-            'sedang_dipinjam' => 48,
-            'terlambat' => 5,
+            'total_buku' => \App\Models\Book::count(),
+            'total_peminjam' => \App\Models\User::where('role', 'peminjam')->count(),
+            'sedang_dipinjam' => \App\Models\Loan::where('status', 'dipinjam')->count(),
+            'terlambat' => \App\Models\Loan::where('status', 'dipinjam')->where('tanggal_jatuh_tempo', '<', $today)->count(),
         ];
 
         // Daftar peminjaman terbaru untuk tabel administrasi

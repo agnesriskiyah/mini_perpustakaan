@@ -44,4 +44,20 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    /**
+     * Relasi ke peminjaman / loans
+     */
+    public function loans()
+    {
+        return $this->hasMany(Loan::class, 'user_id');
+    }
+
+    /**
+     * Alias relasi peminjaman
+     */
+    public function peminjaman()
+    {
+        return $this->loans();
+    }
 }

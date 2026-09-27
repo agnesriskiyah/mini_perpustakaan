@@ -375,39 +375,48 @@
                 </svg>
                 Peminjaman Aktif
             </h2>
-            <a href="#riwayat" class="section-link">Lihat Semua Riwayat &rarr;</a>
+            <a href="{{ route('peminjam.peminjaman.index', ['tab' => 'riwayat']) }}" class="section-link">Lihat Semua Riwayat &rarr;</a>
         </div>
 
-        @if (count($activeLoans) > 0)
-            @foreach ($activeLoans as $loan)
+        @if ($activeLoans->count() > 0)
+            @php
+                $avatarColors = ['#1e3a8a', '#0f766e', '#7c2d12', '#4c1d95', '#be123c'];
+            @endphp
+            @foreach ($activeLoans as $idx => $loan)
                 <div class="loan-card-item">
                     <div class="loan-card-left">
-                        <div class="loan-book-avatar" style="background-color: {{ $loan['cover_color'] }};">
+                        <div class="loan-book-avatar" style="background-color: {{ $avatarColors[$idx % count($avatarColors)] }};">
                             BUKU
                         </div>
                         <div class="loan-info">
-                            <h4>{{ $loan['judul'] }}</h4>
-                            <p>{{ $loan['penulis'] }} &bull; <span style="color: var(--primary);">{{ $loan['kategori'] }}</span> &bull; ID: {{ $loan['id'] }}</p>
+                            <h4>{{ $loan->book ? $loan->book->judul : 'Buku #' . $loan->book_id }}</h4>
+                            <p>
+                                {{ $loan->book ? $loan->book->penulis : '-' }} &bull; 
+                                <span style="color: var(--primary);">{{ $loan->book ? $loan->book->kategori : '-' }}</span> &bull; 
+                                ID Pinjam: PJ-{{ str_pad($loan->id, 4, '0', STR_PAD_LEFT) }}
+                            </p>
                         </div>
                     </div>
 
                     <div class="loan-timeline">
                         <div class="loan-time-box">
                             <span>Tgl Pinjam</span>
-                            <strong>{{ $loan['tgl_pinjam'] }}</strong>
+                            <strong>{{ $loan->tanggal_pinjam->translatedFormat('d M Y') }}</strong>
                         </div>
 
                         <div class="loan-time-box">
                             <span>Batas Kembali</span>
-                            <strong style="color: #dc2626;">{{ $loan['tgl_jatuh_tempo'] }}</strong>
+                            <strong style="color: #dc2626;">{{ $loan->tanggal_jatuh_tempo->translatedFormat('d M Y') }}</strong>
                         </div>
 
                         <div>
-                            <span class="badge {{ $loan['badge_class'] }}">{{ $loan['status'] }}</span>
-                            <div style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 3px;">{{ $loan['sisa_hari'] }}</div>
+                            <span class="badge {{ $loan->badge_class }}">{{ $loan->status_label }}</span>
+                            <div style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 3px;">{{ $loan->sisa_hari_text }}</div>
                         </div>
 
-                        <a href="javascript:void(0)" class="btn-sm-action">Detail</a>
+                        @if ($loan->book)
+                            <a href="{{ route('peminjam.katalog.show', $loan->book->id) }}" class="btn-sm-action">Detail</a>
+                        @endif
                     </div>
                 </div>
             @endforeach
@@ -419,6 +428,11 @@
                 </svg>
                 <h3>Tidak Ada Peminjaman Aktif</h3>
                 <p>Anda belum meminjam buku saat ini. Silakan jelajahi katalog buku untuk melakukan peminjaman.</p>
+                <div style="margin-top: 14px;">
+                    <a href="{{ route('peminjam.katalog.index') }}" class="btn-action-loan" style="display: inline-block;">
+                        Jelajahi Katalog Buku
+                    </a>
+                </div>
             </div>
         @endif
     </section>
@@ -432,14 +446,22 @@
                 </svg>
                 Koleksi Buku Terbaru
             </h2>
-            <a href="javascript:void(0)" class="section-link">Buka Katalog Lengkap &rarr;</a>
+            <a href="{{ route('peminjam.katalog.index') }}" class="section-link">Buka Katalog Lengkap &rarr;</a>
         </div>
 
         <div class="books-grid">
-            @foreach ($latestBooks as $book)
+            @php
+                $gradients = [
+                    'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+                    'linear-gradient(135deg, #065f46 0%, #10b981 100%)',
+                    'linear-gradient(135deg, #7c2d12 0%, #ea580c 100%)',
+                    'linear-gradient(135deg, #4c1d95 0%, #8b5cf6 100%)',
+                ];
+            @endphp
+            @foreach ($latestBooks as $idx => $book)
                 <div class="book-card">
-                    <div class="book-cover" style="background: {{ $book['cover_bg'] }};">
-                        <span class="book-cover-badge">{{ $book['tahun'] }}</span>
+                    <div class="book-cover" style="background: {{ $gradients[$idx % count($gradients)] }};">
+                        <span class="book-cover-badge">{{ $book->tahun_terbit }}</span>
                         <div class="book-cover-icon">
                             <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -447,13 +469,18 @@
                         </div>
                     </div>
                     <div class="book-body">
-                        <span class="book-category">{{ $book['kategori'] }}</span>
-                        <h3 class="book-title" title="{{ $book['judul'] }}">{{ $book['judul'] }}</h3>
-                        <p class="book-author">Oleh {{ $book['penulis'] }}</p>
+                        <span class="book-category">{{ $book->kategori }}</span>
+                        <h3 class="book-title" title="{{ $book->judul }}">{{ $book->judul }}</h3>
+                        <p class="book-author">Oleh {{ $book->penulis }}</p>
 
                         <div class="book-footer">
-                            <span class="book-stock">Tersedia {{ $book['stok'] }}/{{ $book['total_stok'] }}</span>
-                            <a href="javascript:void(0)" class="btn-action-loan">Pinjam</a>
+                            @if ($book->stok > 0)
+                                <span class="book-stock">✓ Stok ({{ $book->stok }})</span>
+                                <a href="{{ route('peminjam.katalog.show', $book->id) }}" class="btn-action-loan">Lihat</a>
+                            @else
+                                <span style="font-size: 12px; font-weight: 600; color: #dc2626;">Stok Habis</span>
+                                <a href="{{ route('peminjam.katalog.show', $book->id) }}" class="btn-action-loan" style="background-color: #94a3b8;">Detail</a>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -473,17 +500,20 @@
         </div>
 
         <div class="recommendation-grid">
-            @foreach ($recommendations as $rec)
+            @php
+                $recColors = ['#0284c7', '#d97706', '#059669'];
+            @endphp
+            @foreach ($recommendations as $idx => $rec)
                 <div class="rec-card">
-                    <div class="rec-thumbnail" style="background: linear-gradient(135deg, {{ $rec['cover_accent'] }}, #1e293b);">
+                    <div class="rec-thumbnail" style="background: linear-gradient(135deg, {{ $recColors[$idx % count($recColors)] }}, #1e293b);">
                         BUKU
                     </div>
                     <div class="rec-body">
-                        <h4 class="rec-title" title="{{ $rec['judul'] }}">{{ $rec['judul'] }}</h4>
-                        <div class="rec-meta">{{ $rec['penulis'] }}</div>
+                        <h4 class="rec-title" title="{{ $rec->judul }}">{{ $rec->judul }}</h4>
+                        <div class="rec-meta">{{ $rec->penulis }} &bull; {{ $rec->kategori }}</div>
                         <div class="rec-bottom">
-                            <span style="color: #d97706; font-weight: 600;">★ {{ $rec['rating'] }} ({{ $rec['dipinjam_count'] }})</span>
-                            <span class="badge badge-success">{{ $rec['status'] }}</span>
+                            <span class="badge badge-success">Tersedia ({{ $rec->stok }})</span>
+                            <a href="{{ route('peminjam.katalog.show', $rec->id) }}" class="btn-sm-action">Lihat</a>
                         </div>
                     </div>
                 </div>
